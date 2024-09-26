@@ -6,40 +6,44 @@
 -- Igor Korsakov
 -- Sergii Tsegelnyk
 --
+-- Modifiers:
+-- GuglioIsStupid - Focussing on LÖVE
+--
 -- License: WTFPL
 -- https://github.com/Overtorment/NoobHub
 --------------------
 
-local rxijson = require "noobhub.json"
-json.encode = rxijson.encode
+socket = require("socket")
+json = require("json")
 
-local noobhub = {
 
+noobhub = {
 	new = function (params) -- constructor method
 		params = params or {}
 		if (not params.server  or not  params.port) then
 			print("Noobhub requires server and port to be specified")
 			return false
 		end
-		
 		local self = {}
 		self.buffer = ''
+
 		self.server =  params.server
 		self.port = params.port
 
 		function self:subscribe(params)
 			self.channel = params.channel or 'test-channel'
 			self.callback = params.callback or   function() end
+			local error_message
 			self.sock, error_message = socket.connect(self.server,  self.port)
 			if (self.sock == nil) then
-				print("Noobhub connection error: "..error_message)
+				print("Noobhub connection error: " .. error_message)
 				print "Problems with server..?"
 				return false
 			end
 			self.sock:setoption( 'tcp-nodelay', true ) -- disable Nagle's algorithm for the connection
 			self.sock:settimeout(0)
-			local input,output = socket.select(nil,{ self.sock }, 3)
-			for i,v in ipairs(output) do
+			local _, output = socket.select(nil, { self.sock }, 3)
+			for _, v in ipairs(output) do
 				v:send("__SUBSCRIBE__"..self.channel.."__ENDSUBSCRIBE__")
 			end
 			return true
@@ -68,9 +72,10 @@ local noobhub = {
 				self:reconnect()
 				return false
 			end
-			local send_result, message, num_bytes = self.sock:send("__JSON__START__"..json.encode(message.message).."__JSON__END__")
+			local send_result, num_bytes
+			send_result, num_bytes = self.sock:send("__JSON__START__"..json.encode(message.message).."__JSON__END__")
 			if (send_result == nil) then
-				print("Noobhub publish error: "..message..'  sent '..num_bytes..' bytes')
+				print("Noobhub publish error: "..message..' sent '..num_bytes..' bytes')
 				if (message == 'closed') then
 					self:reconnect()
 				end
@@ -80,26 +85,29 @@ local noobhub = {
 		end
 
 		function self:enterFrame()
-			local input,output = socket.select({ self.sock }, nil, 0) -- this is a way not to block runtime while reading socket. zero timeout does the trick
-			
-			for i,v in ipairs(input) do
-				
+			local input = socket.select({ self.sock },nil, 0) -- this is a way not to block runtime while reading socket. zero timeout does the trick
+
+			for _, v in ipairs(input) do  -------------
+
 				local got_something_new = false
-				while  true  do
+				while true do
 					local skt, e, p = v:receive()
-					if skt then
+					if (skt) then
 						self.buffer = self.buffer .. skt
-						got_something_new = true
+						got_something_new=true
 					end
-					if p then 
+					if (p) then
 						self.buffer = self.buffer .. p
-						got_something_new = true
+						got_something_new=true
 					end
-					if not skt then break end
-					if e then break end
-				end
-				
-				
+					if (not skt) then
+						break
+					end
+					if (e) then 
+						break
+					end
+				end -- /while-do
+
 				-- now, checking if a message is present in buffer...
 				while got_something_new do  --  this is for a case of several messages stocker in the buffer
 					local start = string.find(self.buffer,'__JSON__START__')
@@ -108,16 +116,16 @@ local noobhub = {
 						local message = string.sub(self.buffer, start+15, finish-1)
 						self.buffer = string.sub(self.buffer, 1, start-1)  ..   string.sub(self.buffer, finish + 13 ) -- cutting our message from buffer
 						local data = json.decode(message)
-						self.callback( data )
+						---@diagnostic disable-next-line: redundant-parameter
+						self.callback(data)
 					else
 						break
 					end
-				end
-			end
-		end
+				end -- /while-do
+
+			end -- / for-do
+		end -- /enterFrame
 
 		return self
-	end
+	end -- /new
 }
-
-return noobhub

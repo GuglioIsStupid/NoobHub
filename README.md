@@ -1,5 +1,7 @@
 # NoobHub
 
+# This is a fork of the original NoobHub repo, this fork is intended for only use with LÖVE2D as it cleans up the code to only have L2D specific code.
+
 [![JavaScript Style Guide](https://img.shields.io/badge/code%20style-standard-brightgreen.svg)](http://standardjs.com/)
 
 OpenSource multiplayer and network messaging for CoronaSDK, Moai, Gideros, LÖVE & Defold
